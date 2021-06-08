@@ -1,12 +1,10 @@
 package v
 
-import (
-	sdk "github.com/cosmos/cosmos-sdk/types"
-)
+import sdk "github.com/cosmos/cosmos-sdk/types"
 
 type Stateful interface {
 	// Lock executes fn with the Stateful locked. External calls are called
-	// immedietly. 
+	// immedietly.
 	// Any async transaction including interchain transactions are not allowed.
 	Lock(fn func())
 
@@ -27,31 +25,42 @@ type State interface {
 type Collection interface {
 	Stateful
 
-	// Pointer returns pointer to a key-value 
+	// Pointer returns pointer to a key-value
 	// Pointer may not be locked, use explicit Lock() in such case
 	Pointer(key string) Pointer // use ocap instead of string
 }
 
 // Pointer is pointer to a specific key-value pair
+// That could be
 type Pointer interface {
 	Stateful
 
 	// CN 1
-	Read() <-chan interface{}
+	Read() interface{}
 	Write() chan<- interface{}
 
 	// CN 2
-	Update() chan interface{}
+	// Update() chan interface{}
+}
 
-	// CN n
-	Modify(func(chan interface{}))
+type pointer struct {
+	ctx sdk.Context
+	key string
+}
+
+type RuntimeTypecheckingPointer struct {
+	Pointer
+	checker func(interface{}) interface{}
+}
+
+func Typecheck(ptr Pointer, checker func(interface{}) interface{}) Pointer {
+	return RuntimeTypecheckingPointer{ptr, checker}
+}
+
+func (ptr RuntimeTypecheckingPointer) Write(v interface{}) {
+	ptr.Pointer.Write(ptr.checker(v))
 }
 
 type StateConstructor struct {
 	Key string
-	
-}
-
-func NewState(states ...StateConstructor) State {
-	
 }
